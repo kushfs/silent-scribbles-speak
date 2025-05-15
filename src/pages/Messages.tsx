@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -7,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Conversation, User } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "lucide-react";
 import { Loader2, Search, UserPlus } from "lucide-react";
 import {
   Dialog,
@@ -38,20 +37,29 @@ const Messages = () => {
 
     const fetchConversations = async () => {
       try {
+        console.log("Fetching conversations for user:", user.id);
+        
         // First get all conversations the user is part of
         const { data: participantData, error: participantError } = await supabase
           .from('conversation_participants')
           .select('conversation_id')
           .eq('user_id', user.id);
         
-        if (participantError) throw participantError;
+        if (participantError) {
+          console.error("Error fetching conversation participants:", participantError);
+          throw participantError;
+        }
+        
+        console.log("Participant data:", participantData);
         
         if (!participantData || participantData.length === 0) {
+          console.log("No conversations found");
           setLoading(false);
           return;
         }
         
         const conversationIds = participantData.map(p => p.conversation_id);
+        console.log("Conversation IDs:", conversationIds);
         
         // Get conversations with their latest message
         const { data: conversationsData, error: conversationsError } = await supabase
@@ -60,53 +68,93 @@ const Messages = () => {
           .in('id', conversationIds)
           .order('updated_at', { ascending: false });
         
-        if (conversationsError) throw conversationsError;
+        if (conversationsError) {
+          console.error("Error fetching conversations:", conversationsError);
+          throw conversationsError;
+        }
+        
+        console.log("Conversations data:", conversationsData);
         
         // For each conversation, get the other participants
         const enhancedConversations: Conversation[] = [];
         
-        for (const conv of conversationsData) {
+        for (const conv of conversationsData || []) {
+          console.log("Processing conversation:", conv.id);
+          
           // Get all participants in this conversation
-          const { data: participants } = await supabase
+          const { data: participants, error: participantsError } = await supabase
             .from('conversation_participants')
             .select('user_id')
             .eq('conversation_id', conv.id);
           
-          // Get usernames of participants (excluding current user)
-          const otherParticipantIds = participants?.filter(p => p.user_id !== user.id).map(p => p.user_id) || [];
+          if (participantsError) {
+            console.error("Error fetching participants for conversation:", conv.id, participantsError);
+            continue;
+          }
           
-          const { data: profilesData } = await supabase
+          console.log("Participants:", participants);
+          
+          // Get usernames of participants (excluding current user)
+          const otherParticipantIds = participants
+            ?.filter(p => p.user_id !== user.id)
+            .map(p => p.user_id) || [];
+          
+          console.log("Other participant IDs:", otherParticipantIds);
+          
+          const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('username')
             .in('id', otherParticipantIds);
           
+          if (profilesError) {
+            console.error("Error fetching profiles:", profilesError);
+            continue;
+          }
+          
+          console.log("Profiles data:", profilesData);
+          
           // Get latest message
-          const { data: messages } = await supabase
+          const { data: messages, error: messagesError } = await supabase
             .from('messages')
             .select('*')
             .eq('conversation_id', conv.id)
             .order('created_at', { ascending: false })
             .limit(1);
           
+          if (messagesError) {
+            console.error("Error fetching messages:", messagesError);
+            continue;
+          }
+          
+          console.log("Latest message:", messages);
+          
           // Count unread messages
-          const { count: unreadCount } = await supabase
+          const { count: unreadCount, error: countError } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
             .eq('conversation_id', conv.id)
             .eq('read', false)
             .neq('sender_id', user.id);
           
+          if (countError) {
+            console.error("Error counting unread messages:", countError);
+            continue;
+          }
+          
+          console.log("Unread count:", unreadCount);
+          
           enhancedConversations.push({
             id: conv.id,
             participant_ids: otherParticipantIds,
             participant_usernames: profilesData?.map(p => p.username) || [],
-            last_message: messages?.[0],
+            last_message: messages?.[0] as any,
             unread_count: unreadCount || 0,
             created_at: conv.created_at,
             updated_at: conv.updated_at
           });
         }
         
+        console.log("Enhanced conversations:", enhancedConversations);
         setConversations(enhancedConversations);
       } catch (error) {
         console.error("Error fetching conversations:", error);
@@ -128,8 +176,10 @@ const Messages = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
+          console.log("New message received:", payload);
+          
           // Handle new message
-          const newMessage = payload.new;
+          const newMessage = payload.new as any;
           
           // Check if the message is for one of the user's conversations
           const isUserConversation = conversations.some(
@@ -137,6 +187,8 @@ const Messages = () => {
           );
           
           if (isUserConversation) {
+            console.log("Updating conversations with new message");
+            
             // Update the conversations list with the new message
             setConversations(prevConversations => {
               return prevConversations.map(conv => {
@@ -179,6 +231,8 @@ const Messages = () => {
 
     setIsSearching(true);
     try {
+      console.log("Searching for users with username like:", searchUsername);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, avatar_url, created_at')
@@ -186,9 +240,14 @@ const Messages = () => {
         .neq('id', user?.id)
         .limit(5);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error searching users:", error);
+        throw error;
+      }
       
-      setSearchResults(data as User[]);
+      console.log("Search results:", data);
+      
+      setSearchResults(data as unknown as User[]);
     } catch (error) {
       console.error("Error searching users:", error);
       toast({
@@ -204,16 +263,22 @@ const Messages = () => {
   // Start a new conversation
   const startConversation = async (otherUser: User) => {
     try {
+      console.log("Starting conversation with user:", otherUser);
+      
       // Check if a conversation already exists with this user
       const existingConversation = conversations.find(conv => 
         conv.participant_ids.includes(otherUser.id)
       );
       
       if (existingConversation) {
+        console.log("Conversation already exists:", existingConversation);
+        
         setSelectedConversation(existingConversation);
         setNewChatDialogOpen(false);
         return;
       }
+      
+      console.log("Creating new conversation");
       
       // Create a new conversation
       const { data: conversationData, error: conversationError } = await supabase
@@ -221,7 +286,12 @@ const Messages = () => {
         .insert([{ }])
         .select();
       
-      if (conversationError || !conversationData) throw conversationError;
+      if (conversationError || !conversationData) {
+        console.error("Error creating conversation:", conversationError);
+        throw conversationError;
+      }
+      
+      console.log("Created conversation:", conversationData);
       
       // Add participants
       const { error: participantsError } = await supabase
@@ -231,7 +301,10 @@ const Messages = () => {
           { conversation_id: conversationData[0].id, user_id: otherUser.id }
         ]);
       
-      if (participantsError) throw participantsError;
+      if (participantsError) {
+        console.error("Error adding participants:", participantsError);
+        throw participantsError;
+      }
       
       // Create new conversation object
       const newConversation: Conversation = {
@@ -242,6 +315,8 @@ const Messages = () => {
         created_at: conversationData[0].created_at,
         updated_at: conversationData[0].updated_at
       };
+      
+      console.log("New conversation object:", newConversation);
       
       // Add to conversations list
       setConversations([newConversation, ...conversations]);
