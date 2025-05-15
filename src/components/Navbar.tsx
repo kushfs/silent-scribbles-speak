@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Message, Plus, User } from "lucide-react";
+import { MessageSquare, Plus, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -57,7 +57,7 @@ export function Navbar() {
               
               <Link to="/messages">
                 <Button variant="outline" size="icon" className="md:hidden">
-                  <Message className="h-4 w-4" />
+                  <MessageSquare className="h-4 w-4" />
                   <span className="sr-only">Messages</span>
                 </Button>
               </Link>

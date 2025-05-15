@@ -46,6 +46,7 @@ export type ChatMessage = {
   content: string;
   created_at: string;
   read: boolean;
+  [key: string]: any; // Add this to allow extra properties from Supabase
 };
 
 export type Conversation = {
