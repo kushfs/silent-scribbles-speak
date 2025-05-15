@@ -29,7 +29,7 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
           .from('messages')
           .select('*')
           .eq('conversation_id', conversation.id)
-          .order('created_at', { ascending: true });
+          .order('created_at', { ascending: true }) as { data: any[], error: any };
         
         if (error) throw error;
         
@@ -46,7 +46,7 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
             await supabase
               .from('messages')
               .update({ read: true })
-              .in('id', unreadMessages);
+              .in('id', unreadMessages) as { data: any, error: any };
           }
         }
       } catch (error) {
@@ -80,7 +80,7 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
             await supabase
               .from('messages')
               .update({ read: true })
-              .eq('id', newMsg.id);
+              .eq('id', newMsg.id) as { data: any, error: any };
           }
         }
       )
@@ -111,7 +111,7 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
           sender_id: currentUser.id,
           content: newMessage.trim(),
           read: false
-        });
+        }) as { error: any };
       
       if (error) throw error;
       
@@ -119,7 +119,7 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
       await supabase
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
-        .eq('id', conversation.id);
+        .eq('id', conversation.id) as { error: any };
       
       // Clear input
       setNewMessage("");

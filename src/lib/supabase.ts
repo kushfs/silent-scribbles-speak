@@ -11,3 +11,6 @@ export type Tables = Database['public']['Tables'];
 export type Messages = Tables['messages']['Row'];
 export type Conversations = Tables['conversations']['Row'];
 export type ConversationParticipants = Tables['conversation_participants']['Row'];
+export type Posts = Tables['posts']['Row'];
+export type Comments = Tables['comments']['Row'];
+export type Profiles = Tables['profiles']['Row'];

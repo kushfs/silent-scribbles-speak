@@ -23,10 +23,13 @@ const Index = () => {
       let query = supabase
         .from("posts")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }) as { data: any[], error: any };
       
       if (activeTab === "popular") {
-        query = query.order("likes_count", { ascending: false });
+        query = supabase
+          .from("posts")
+          .select("*")
+          .order("likes_count", { ascending: false }) as { data: any[], error: any };
       }
 
       const { data, error } = await query;
@@ -58,7 +61,7 @@ const Index = () => {
         const { data: optionsData } = await supabase
           .from("poll_options")
           .select("*")
-          .in("post_id", pollPosts.map(post => post.id));
+          .in("post_id", pollPosts.map(post => post.id)) as { data: any[], error: any };
           
         if (optionsData) {
           const groupedOptions: Record<string, PollOption[]> = {};
@@ -90,20 +93,20 @@ const Index = () => {
       .select('*')
       .eq('post_id', postId)
       .eq('user_id', user.id)
-      .single();
+      .single() as { data: any, error: any };
     
     if (existingLike) {
       // Unlike the post
       await supabase
         .from('post_likes')
         .delete()
-        .match({ post_id: postId, user_id: user.id });
+        .match({ post_id: postId, user_id: user.id }) as { error: any };
         
       // Update post likes count
       await supabase
         .from('posts')
         .update({ likes_count: supabase.rpc('decrement', { x: 1 }) })
-        .eq('id', postId);
+        .eq('id', postId) as { error: any };
       
       // Update local state
       setPosts(posts.map(post => 
@@ -115,13 +118,13 @@ const Index = () => {
       // Like the post
       await supabase
         .from('post_likes')
-        .insert([{ post_id: postId, user_id: user.id }]);
+        .insert([{ post_id: postId, user_id: user.id }]) as { error: any };
       
       // Update post likes count
       await supabase
         .from('posts')
         .update({ likes_count: supabase.rpc('increment', { x: 1 }) })
-        .eq('id', postId);
+        .eq('id', postId) as { error: any };
       
       // Update local state
       setPosts(posts.map(post => 
@@ -142,19 +145,19 @@ const Index = () => {
       .select('*')
       .eq('poll_option_id', optionId)
       .eq('user_id', user.id)
-      .single();
+      .single() as { data: any, error: any };
     
     if (!existingVote) {
       // Record the vote
       await supabase
         .from('poll_votes')
-        .insert([{ poll_option_id: optionId, user_id: user.id }]);
+        .insert([{ poll_option_id: optionId, user_id: user.id }]) as { error: any };
       
       // Update vote count for the option
       await supabase
         .from('poll_options')
         .update({ votes_count: supabase.rpc('increment', { x: 1 }) })
-        .eq('id', optionId);
+        .eq('id', optionId) as { error: any };
       
       // Update local state
       setPollOptions({

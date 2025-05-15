@@ -154,6 +154,32 @@ export interface Database {
           created_at?: string
         }
       }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          created_at: string
+          read: boolean
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          created_at?: string
+          read?: boolean
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          sender_id?: string
+          content?: string
+          created_at?: string
+          read?: boolean
+        }
+      }
       conversations: {
         Row: {
           id: string
@@ -186,32 +212,6 @@ export interface Database {
           id?: string
           conversation_id?: string
           user_id?: string
-        }
-      }
-      messages: {
-        Row: {
-          id: string
-          conversation_id: string
-          sender_id: string
-          content: string
-          created_at: string
-          read: boolean
-        }
-        Insert: {
-          id?: string
-          conversation_id: string
-          sender_id: string
-          content: string
-          created_at?: string
-          read?: boolean
-        }
-        Update: {
-          id?: string
-          conversation_id?: string
-          sender_id?: string
-          content?: string
-          created_at?: string
-          read?: boolean
         }
       }
     }
