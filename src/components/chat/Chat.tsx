@@ -33,11 +33,11 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
         
         if (error) throw error;
         
-        // We need to cast the data to ChatMessage[] since we know it matches our expected type
-        setMessages((data || []) as unknown as ChatMessage[]);
+        // We need to cast the data to match our expected type
+        setMessages(data as unknown as ChatMessage[]);
         
         // Mark messages as read
-        if (data) {
+        if (data && data.length > 0) {
           const unreadMessages = data
             .filter(m => !m.read && m.sender_id !== currentUser.id)
             .map(m => m.id);
@@ -106,12 +106,12 @@ const Chat = ({ conversation, currentUser }: ChatProps) => {
       // Send message
       const { error } = await supabase
         .from('messages')
-        .insert([{
+        .insert({
           conversation_id: conversation.id,
           sender_id: currentUser.id,
           content: newMessage.trim(),
           read: false
-        }] as any); // Using 'any' temporarily to bypass type checking
+        });
       
       if (error) throw error;
       

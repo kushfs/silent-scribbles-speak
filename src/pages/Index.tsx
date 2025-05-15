@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
@@ -37,10 +36,23 @@ const Index = () => {
         return;
       }
       
-      setPosts(data as Post[]);
+      // Map the data to match our Post type
+      const mappedPosts = data?.map(post => ({
+        id: post.id,
+        title: post.name || undefined,
+        content: typeof post.content === 'string' ? post.content : JSON.stringify(post.content),
+        type: (post.type as any) || 'text',
+        created_at: post.created_at || new Date().toISOString(),
+        likes_count: post.like_count || 0,
+        comments_count: 0, // Default value since we don't have this in the DB yet
+        media_url: post.media_url || undefined,
+        media_type: undefined, // Default value
+      })) as Post[];
+      
+      setPosts(mappedPosts);
       
       // Fetch poll options for poll posts
-      const pollPosts = data?.filter(post => post.type === 'poll') || [];
+      const pollPosts = mappedPosts?.filter(post => post.type === 'poll') || [];
       
       if (pollPosts.length > 0) {
         const { data: optionsData } = await supabase
