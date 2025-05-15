@@ -23,67 +23,96 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const setData = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error(error);
-        toast({
-          title: "Authentication Error",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      setSession(session);
-      setUser(session?.user ? {
-        id: session.user.id,
-        email: session.user.email || '',
-        username: '',
-        created_at: session.user.created_at,
-      } : null);
-      
-      // If user is logged in, fetch their profile
-      if (session?.user) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('username, avatar_url')
-          .eq('id', session.user.id)
-          .single();
+    // First get the current session
+    const getCurrentSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
         
-        if (profileData && !profileError) {
-          setUser(prev => prev ? {
-            ...prev,
-            username: profileData.username,
-            avatar_url: profileData.avatar_url || undefined
-          } : null);
+        if (error) {
+          console.error("Error getting session:", error);
+          return;
         }
+        
+        if (data.session) {
+          setSession(data.session);
+          setUser({
+            id: data.session.user.id,
+            email: data.session.user.email || '',
+            username: '',
+            created_at: data.session.user.created_at
+          });
+          
+          // Fetch profile data if session exists
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('username, profile_picture_url')
+            .eq('id', data.session.user.id)
+            .single();
+            
+          if (!profileError && profileData) {
+            setUser(prev => prev ? {
+              ...prev,
+              username: profileData.username,
+              avatar_url: profileData.profile_picture_url
+            } : null);
+          }
+        }
+      } catch (error) {
+        console.error("Session retrieval error:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
     
-    setData();
+    getCurrentSession();
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ? {
-        id: session.user.id,
-        email: session.user.email || '',
-        username: '',
-        created_at: session.user.created_at,
-      } : null);
-      
-      setLoading(false);
-    });
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        setSession(currentSession);
+        
+        if (currentSession?.user) {
+          setUser({
+            id: currentSession.user.id,
+            email: currentSession.user.email || '',
+            username: '',
+            created_at: currentSession.user.created_at
+          });
+          
+          // Fetch profile data on auth state change
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('username, profile_picture_url')
+            .eq('id', currentSession.user.id)
+            .single();
+            
+          if (!profileError && profileData) {
+            setUser(prev => prev ? {
+              ...prev,
+              username: profileData.username,
+              avatar_url: profileData.profile_picture_url
+            } : null);
+          }
+        } else {
+          setUser(null);
+        }
+        
+        setLoading(false);
+      }
+    );
     
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [toast]);
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ 
+        email, 
+        password 
+      });
       
       if (error) {
         toast({
@@ -96,22 +125,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           title: "Login Successful",
           description: "Welcome back!",
         });
-        // Fetch user profile info
-        if (data.user) {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('username, avatar_url')
-            .eq('id', data.user.id)
-            .single();
-          
-          if (profileData) {
-            setUser(prev => prev ? {
-              ...prev,
-              username: profileData.username,
-              avatar_url: profileData.avatar_url || undefined
-            } : null);
-          }
-        }
       }
     } catch (error) {
       console.error("Error signing in:", error);
@@ -130,13 +143,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(true);
       
       // Check if username is already taken
-      const { data: existingUser } = await supabase
+      const { data: existingUsernames, error: usernameCheckError } = await supabase
         .from('profiles')
-        .select('id')
-        .eq('username', username)
-        .single();
+        .select('username')
+        .eq('username', username);
       
-      if (existingUser) {
+      if (usernameCheckError) {
+        console.error("Error checking username:", usernameCheckError);
+        toast({
+          title: "Registration Error",
+          description: "Could not verify username availability.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (existingUsernames && existingUsernames.length > 0) {
         toast({
           title: "Registration Failed",
           description: "This username is already taken.",
@@ -146,8 +168,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Create the user account
-      const { data, error } = await supabase.auth.signUp({ 
-        email, 
+      const { data, error } = await supabase.auth.signUp({
+        email,
         password,
         options: {
           data: { username }
@@ -171,7 +193,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             {
               id: data.user.id,
               username,
-              email,
+              email
             }
           ]);
         
@@ -187,13 +209,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         toast({
           title: "Registration Successful",
           description: "Your account has been created.",
-        });
-        
-        setUser({
-          id: data.user.id,
-          email,
-          username,
-          created_at: data.user.created_at
         });
       }
     } catch (error) {
@@ -211,8 +226,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        toast({
+          title: "Logout Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
       setUser(null);
+      setSession(null);
+      
       toast({
         title: "Logout Successful",
         description: "You have been logged out.",
